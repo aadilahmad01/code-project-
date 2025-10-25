@@ -1,0 +1,11 @@
+#using hashlib module , calculate hash value of files
+import hashlib
+def sha_256(path):
+    with open(path,"rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+files = ["config.txt","notes.txt"]
+for i in files:
+    try:
+        print(i ,":", sha_256(i))
+    except FileNotFoundError:
+        print(i," not found")
