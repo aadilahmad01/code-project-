@@ -1,0 +1,21 @@
+# digital security card....
+#import only the date time "class", from the datetime module
+from datetime import datetime
+#define a function named login_log that takes two arguments
+#1. username 
+#2.success(Boolean)
+def log_login(username, success):
+    #open a file in append mode("a")
+    with open("login_txt","a") as log_file:
+        # readible date like "2025-10-20 12:45:21"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        #create one line of text showing username,success
+        #example "2025-10-20 | "
+        log_entry = f'{timestamp}  user : {username} | success : {success} \n'
+        #write that next line into a file
+        log_file.write(log_entry)
+#calling a function to simulate different login attempts
+log_login("admin",True)
+log_login("test_user",True)
+log_login("test_user2",True)
+log_login("test_user3",False)
