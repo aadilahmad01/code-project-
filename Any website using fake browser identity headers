@@ -1,0 +1,23 @@
+# excess code of any website using fake browswe identity heADERS
+import requests
+website = "https://greaterkashmir.com"
+#pretend we are using chrome browser instead of python script
+headers  = {
+    "user-agent" : "Mozilla/5.0(Windows NT 10.0; Win64;x64) "
+                    "Applewebkit/537.36 (KHTML, Like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+}
+#user-agent : is like a fake ID card
+#by default , request says "i am python", which many sites don't like
+try:
+    response = requests.get(website, timeout =5, headers=headers)
+    code = response.status_code
+    print(f"Status code  : ",code)
+    if code == 200:
+        print("website is reachable")
+        print()
+        print(response.text[::])
+    else:
+        print("Website is not reachable")
+except Exception as e:
+    print("Error : ",e)
