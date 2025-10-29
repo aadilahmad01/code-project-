@@ -1,0 +1,14 @@
+#OTP (One time passoword) generator and verifier
+import random
+otp = f'{random. randint(0,999999):06d}'  
+print("Otp is : ",otp)
+tries = 3
+while tries > 0:
+    entry = input("Enter 6 digit otp")
+    if entry == otp:
+        print("OTP verified")
+        break
+    tries= tries - 1
+    print("Incorrect Otp, Tries left ", tries)
+else:
+    print("To many attempts ...........")
