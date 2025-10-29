@@ -1,0 +1,15 @@
+## enecrypting image 
+def  encrypt_image(input_image,encrypted_file,key_file):
+    # reads an image, encrypts its binary data
+    with open(key_file,"rb") as f:
+        key = f.read()
+        #create  a fernet cipher using the key
+        cipher = Fernet(key)
+    with open(input_image,"rb") as img:
+        image_data = img.read()
+    encrypted_data = cipher.encrypt(image_data)
+    
+    with open(encrypted_file,"wb") as ef:
+        ef.write(encrypted_data)
+    print(f"Image {input_image} encrypted and saved as {encrypted_file}.")
+encrypt_image("pixels.jpg","encrypt_image.bin","imgk.key")
