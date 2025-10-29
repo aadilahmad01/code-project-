@@ -1,0 +1,16 @@
+##DECRYPTING IMAGE
+def decrypt_image(encrypt_image,output_image,key_file):
+    #read the encrypted file
+    with open(key_file,"rb") as f:
+        key = f.read()
+    cipher = Fernet(key)
+
+    with open(encrypt_image,"rb") as ef:
+        encrypted_data = ef.read()
+
+    decrypted_data = cipher.decrypt(encrypted_data)
+
+    with open(output_image,"wb") as img:
+        img.write(decrypted_data)
+    print(f"Decrypted image  saved as {output_image}.")
+decrypt_image("encrypt_image.bin","new_decrypted.jpg","imgk.key")
