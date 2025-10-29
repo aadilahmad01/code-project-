@@ -1,0 +1,60 @@
+#encyption of images 
+#importing necessary libraries
+from cryptography.fernet  import Fernet   #provides encryption adn dec
+import matplotlib.pyplot as plt  #used to display images
+from PIL import Image #used to read and handle images
+import numpy as np # used   to handle numerical data
+
+#------------------------------------------------------------------
+#STEP 1: GENERATE AND SAVE A SECRET KEY
+key = Fernet.generate_key()
+with open("key_file.key","wb") as f:
+    f.write(key)
+
+#-----------------------------------------------------------------
+
+# Step 2: Create a fernet cipher object using key
+cipher = Fernet(key)  #create a cipher obj
+
+#step 3: read the original image as binary data
+with open("pixels.jpg","rb") as f:
+    original_data = f.read()
+# step 4 :---------------------------------------------------
+encrypt_data = cipher.encrypt(original_data)
+
+# step 5 :---------------------------------------------------
+#save the encrypted data
+with open("encrypted_image2.bin","wb") as f:
+    f.write(encrypt_data)
+    
+#step 6 decrypt the data to verify correctness
+decrypted_data = cipher.decrypt(encrypt_data)
+with open("decrypted_image.jpeg" , "wb") as f:
+    f.write(decrypted_data)
+#--------------------------------------------------------------
+#display the origina, encryted and decrypted images 
+original_img = np.array(Image.open("pixels.jpg"))
+decrypted_img = np.array(Image.open("decrypted_image.jpeg"))
+
+#-------------------------------------------------------------------------------
+# create encrypted bytes into 2d array
+# enrypted data  is not an image  we just diplay its byte pattern
+encrypted_array = np.frombuffer(encrypt_data[:50000],dtype=np.uint8)
+encrypted_array = encrypted_array.reshape(-1,250)
+#--------------------------------------------------------------------
+
+#display all the three images
+plt.figure(figsize=(10,6),dpi=600)
+
+plt.subplot(1,3,1)
+plt.imshow(original_img)
+plt.title("original image")
+plt.axis("off")
+plt.subplot(1,3,2)
+plt.imshow(encrypted_array,cmap="gray")
+plt.title("Encrypted data (Noise)")
+plt.axis("off")
+plt.subplot(1,3,3)
+plt.imshow(decrypted_img)
+plt.title("decrypted data ")
+plt.axis("off")
