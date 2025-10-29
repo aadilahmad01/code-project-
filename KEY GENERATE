@@ -1,0 +1,11 @@
+# import fernet from cryptography library
+from cryptography.fernet import Fernet
+
+# step 1: generate and save a secret key
+def generate_key(key_file):
+    #generate a 32 byte encryption key
+    key = Fernet.generate_key()
+    with open(key_file,"wb") as f:
+        f.write(key)
+    print(f"Key generated and saved to : {key_file}")
+generate_key("imagekey.key")
