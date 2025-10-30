@@ -1,0 +1,20 @@
+"""
+this script demonstrates how to create a time-limited (temporary)
+encrypted mssg using fernet """
+import time # to pause the program
+from cryptography.fernet  import Fernet,InvalidToken
+#step 1: create a secret key
+key = Fernet.generate_key()
+cipher = Fernet(key)
+print("Key generated : ")
+token = cipher.encrypt(b"This is a message")
+
+time.sleep(5) #pretend the user waited too long 
+
+try:
+    #it will  decrypt if the message is less than 5 seconds old
+    #ttl = time to live : how long the token  stays valid
+    print(cipher.decrypt(token,ttl=6).decode())
+
+except InvalidToken:
+    print("License Expired .")
