@@ -1,0 +1,138 @@
+import hashlib
+from cryptography.fernet import Fernet
+import os
+import mysql.connector
+# configure 
+KEYFILE = "key.key"
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "root",
+    "password" : "Aadilahmad@119",
+    "database" : "testdb"   
+}
+print(DB_CONFIG)
+DB_CONFIG["host"]
+# part 1  key management and hash 
+def load_or_create_key(path=KEYFILE):
+    """ load the fernet key from file or create a new file """
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    key = Fernet.generate_key()
+    with open (path,"wb") as f:
+        f.write(key)
+    print(f"Key Generated and saved to path {path}")
+    return key
+def sha256_hex(s:str) -> str:
+    # return hex 256 digest of input string
+    h = hashlib.sha256()
+    h.update(s.encode())
+    return h.hexdigest()
+# 101 convert into a fixed 64 charater
+def connect_db():
+    return mysql.connector.connect(
+    host= DB_CONFIG["host"],
+    user = DB_CONFIG["user"],
+    password = DB_CONFIG["password"],
+    database = DB_CONFIG["database"]   
+    )
+def create_table_if_not_exists(cursor):
+        cursor.execute(""" 
+        CREATE TABLE IF NOT EXISTS secure_bank(
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        acc_no_encrypted BLOB NOT NULL,
+        acc_no_hash CHAR(64) NOT NULL ,
+        name_encrypted BLOB,
+        balance_encrypted BLOB,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY (acc_no_hash)
+        )""")
+#INSERTING ENCRYPTED DATA
+def  insert_account(cursor,cipher, acc_no:str,name:str,balance:float):
+    acc_no_hash =  sha256_hex(acc_no)
+    enc_acc_no = cipher.encrypt(acc_no.encode())
+    enc_name = cipher.encrypt(name.encode())
+    enc_balance = cipher.encrypt(str(balance).encode())
+
+    sql= """INSERT INTO secure_bank(acc_no_encrypted,acc_no_hash,name_encrypted
+,balance_encrypted) VALUES (%s,%s,%s,%s)
+    """
+    cursor.execute(sql,(enc_acc_no,acc_no_hash,enc_name,enc_balance))
+def fetch_all_and_decrypt(cursor,cipher):
+    cursor.execute("SELECT id,acc_no_encrypted,name_encrypted,balance_encrypted,created_at  FROM secure_bank ")
+    rows = cursor.fetchall()
+    result = []
+
+    for r in rows:
+        _id,enc_acc_no,enc_name,enc_balance,created_at = r
+        acc_no = cipher.decrypt(enc_acc_no).decode()
+        name = cipher.decrypt(enc_name).decode()
+        balance = cipher.decrypt(enc_balance).decode()
+    result.append({
+
+
+        "id" : _id,
+        "acc_no": acc_no,
+        "name" :name,
+        "balance": balance
+    }    
+    )
+    return result
+    # lookup by account number 
+def find_by_acc_no(cursor,cipher,acc_no_to_find:str):
+    acc_no_hash = sha256_hex(acc_no_to_find)
+    cursor.execute("SELECT id,acc_no_encrypted,name_encrypted,balance_encrypted  FROM secure_bank WHERE acc_no_hash = %s ",(acc_no_hash,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    _id,enc_acc_no,enc_name,enc_balance = row
+
+    return{
+
+    "id ": _id,
+    "acc_no" : cipher.decrypt(enc_acc_no).decode(),
+    "name" : cipher.decrypt(enc_name).decode(),
+    "balance" : cipher.decrypt(enc_balance).decode(),     
+    }
+def main():
+    #load or create a fernet key
+    key = load_or_create_key()
+    cipher = Fernet(key)
+
+    conn = connect_db()
+    cursor = conn.cursor()
+     #create table 
+    create_table_if_not_exists(cursor)
+    conn.commit()
+
+    sample_data = [("101","Aadil",123456.67),
+                   ("102","Mujabil",456789.67),
+                  ("103","Owais",1122334.67)]
+
+    #insert each record (skip duplicates)
+    for acc_no,name,balance in sample_data:
+        try:
+            insert_account(cursor,cipher,acc_no,name,balance)
+        except mysql.connector.IntegrityError:
+            print(f"Account {acc_no} already Exists, Skipping")
+    conn.commit()
+
+    rows = fetch_all_and_decrypt(cursor, cipher)
+    print("\nAll Decrypted Records ")
+    for r in rows:
+        print(f"ID : {r['id']} |  Account Number :{r["acc_no"]} | Name : {r['name']} | Balance : {r['balance']}")
+
+    #lookby by account number 
+    acct = find_by_acc_no(cursor,cipher,"102")
+    print("Lookup account 102 : ")
+    if acct :
+        print(f"Found --> ID : {r["id"]}, | Account Number : {r["acc_no"]}  | Name : {r['name']} | Balance : {r['balance']}")
+    else:
+        print("Not Found")
+
+    cursor.close()
+    conn.close()
+if __name__ == "__main__":
+    main()
+
+    
