@@ -1,0 +1,313 @@
+# =============================================================
+# SECURE DATABASE SYSTEM USING HASHING, FERNET & RSA (MySQL)
+# =============================================================
+# This project:
+# - Hashes passwords using SHA-256
+# - Encrypts data using Fernet
+# - Protects Fernet key using RSA
+# - Stores everything securely in MySQL
+# =============================================================
+
+
+# =============================================================
+# IMPORT LIBRARIES
+# =============================================================
+
+import mysql.connector  # MySQL connection
+import hashlib  # Password hashing
+
+from cryptography.fernet import Fernet  # Symmetric encryption
+
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+
+from cryptography.hazmat.primitives import serialization, hashes
+
+from cryptography.hazmat.backends import default_backend
+
+
+
+# =============================================================
+# CONNECT TO MYSQL DATABASE
+# =============================================================
+
+# Change these according to your MySQL setup
+
+db = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="Aadilahmad@119",  # change if different
+    database="secure_vault"
+)
+
+cursor = db.cursor()
+
+
+
+# =============================================================
+# CREATE TABLE
+# =============================================================
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    username VARCHAR(255) PRIMARY KEY,
+    password_hash TEXT,
+    private_key BLOB,
+    public_key BLOB,
+    encrypted_fernet_key BLOB,
+    encrypted_data BLOB
+)
+""")
+
+db.commit()
+
+
+
+# =============================================================
+# PASSWORD HASH FUNCTION
+# =============================================================
+
+def hash_password(password):
+
+    # Convert password into SHA-256 hash
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+
+# =============================================================
+# GENERATE RSA KEYS
+# =============================================================
+
+def generate_rsa_keys():
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+
+    public_key = private_key.public_key()
+
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    public_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    return private_bytes, public_bytes
+
+
+
+# =============================================================
+# ENCRYPT FERNET KEY USING RSA
+# =============================================================
+
+def encrypt_fernet_key(fernet_key, public_key_bytes):
+
+    public_key = serialization.load_pem_public_key(
+        public_key_bytes,
+        backend=default_backend()
+    )
+
+    encrypted_key = public_key.encrypt(
+        fernet_key,
+        padding.OAEP(
+            mgf=padding.MGF1(hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    return encrypted_key
+
+
+
+# =============================================================
+# DECRYPT FERNET KEY
+# =============================================================
+
+def decrypt_fernet_key(encrypted_key, private_key_bytes):
+
+    private_key = serialization.load_pem_private_key(
+        private_key_bytes,
+        password=None,
+        backend=default_backend()
+    )
+
+    decrypted_key = private_key.decrypt(
+        encrypted_key,
+        padding.OAEP(
+            mgf=padding.MGF1(hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    return decrypted_key
+
+
+
+# =============================================================
+# REGISTER FUNCTION
+# =============================================================
+
+def register():
+
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+
+    password_hash = hash_password(password)
+
+    private_key, public_key = generate_rsa_keys()
+
+    fernet_key = Fernet.generate_key()
+
+    encrypted_fernet_key = encrypt_fernet_key(fernet_key, public_key)
+
+    try:
+
+        cursor.execute("""
+        INSERT INTO users VALUES (%s,%s,%s,%s,%s,%s)
+        """, (username, password_hash, private_key,
+              public_key, encrypted_fernet_key, None))
+
+        db.commit()
+
+        print("User registered successfully!")
+
+    except:
+
+        print("User already exists!")
+
+
+
+# =============================================================
+# LOGIN FUNCTION
+# =============================================================
+
+def login():
+
+    username = input("Enter username: ")
+    password = input("Enter password: ")
+
+    password_hash = hash_password(password)
+
+    cursor.execute(
+        "SELECT * FROM users WHERE username=%s",
+        (username,)
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+
+        print("User not found")
+        return
+
+    if password_hash != user[1]:
+
+        print("Wrong password")
+        return
+
+    print("Login successful")
+
+    private_key = user[2]
+    encrypted_fernet_key = user[4]
+
+    fernet_key = decrypt_fernet_key(
+        encrypted_fernet_key,
+        private_key
+    )
+
+    fernet = Fernet(fernet_key)
+
+
+    while True:
+
+        print("\n1 Store Data")
+        print("2 Retrieve Data")
+        print("3 Exit")
+
+        choice = input("Choice: ")
+
+
+        if choice == "1":
+
+            data = input("Enter data: ")
+
+            encrypted_data = fernet.encrypt(data.encode())
+
+            cursor.execute(
+                "UPDATE users SET encrypted_data=%s WHERE username=%s",
+                (encrypted_data, username)
+            )
+
+            db.commit()
+
+            print("Data stored securely")
+
+
+        elif choice == "2":
+
+            cursor.execute(
+                "SELECT encrypted_data FROM users WHERE username=%s",
+                (username,)
+            )
+
+            encrypted_data = cursor.fetchone()[0]
+
+            if encrypted_data is None:
+
+                print("No data found")
+
+            else:
+
+                decrypted_data = fernet.decrypt(encrypted_data)
+
+                print("Your data:", decrypted_data.decode())
+
+
+        elif choice == "3":
+
+            break
+
+
+
+# =============================================================
+# MAIN MENU
+# =============================================================
+
+while True:
+
+    print("\nSECURE DATABASE SYSTEM")
+    print("1 Register")
+    print("2 Login")
+    print("3 Exit")
+
+    option = input("Enter option: ")
+
+    if option == "1":
+
+        register()
+
+    elif option == "2":
+
+        login()
+
+    elif option == "3":
+
+        break
+
+
+
+# =============================================================
+# CLOSE CONNECTION
+# =============================================================
+
+db.close()
+
+print("Program ended")
